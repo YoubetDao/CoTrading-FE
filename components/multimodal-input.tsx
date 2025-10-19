@@ -36,7 +36,7 @@ import { ArrowDown } from "lucide-react";
 import { useScrollToBottom } from "@/hooks/use-scroll-to-bottom";
 import type { VisibilityType } from "./visibility-selector";
 import type { Attachment, ChatMessage } from "@/lib/types";
-import { chatModels } from "@/lib/ai/models";
+import { chatModels, DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
 import { saveChatModelAsCookie } from "@/app/(chat)/actions";
 import { startTransition } from "react";
 
@@ -53,6 +53,7 @@ function PureMultimodalInput({
   sendMessage,
   className,
   selectedVisibilityType,
+  selectedModelId = DEFAULT_CHAT_MODEL,
 }: {
   chatId: string;
   input: string;
@@ -66,9 +67,13 @@ function PureMultimodalInput({
   sendMessage: any;
   className?: string;
   selectedVisibilityType: VisibilityType;
+  selectedModelId?: string;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
+
+  // Keep the selected model id available for the upcoming compact selector.
+  void selectedModelId;
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -348,6 +353,7 @@ export const MultimodalInput = memo(
     if (!equal(prevProps.attachments, nextProps.attachments)) return false;
     if (prevProps.selectedVisibilityType !== nextProps.selectedVisibilityType)
       return false;
+    if (prevProps.selectedModelId !== nextProps.selectedModelId) return false;
 
     return true;
   }

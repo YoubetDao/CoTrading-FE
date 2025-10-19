@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ChatHeader } from "@/components/chat-header";
+import { Artifact } from "@/components/artifact";
 import { MultimodalInput } from "./multimodal-input";
 import { Messages } from "./messages";
 import type { VisibilityType } from "./visibility-selector";
 import type { Attachment, ChatMessage } from "@/lib/types";
-import { useArtifactSelector } from "@/hooks/use-artifact";
+import { useArtifact, useArtifactSelector } from "@/hooks/use-artifact";
 import { useChatVisibility } from "@/hooks/use-chat-visibility";
 import { useDataStream } from "./data-stream-provider";
 import { toast } from "./toast";
@@ -15,6 +16,40 @@ import { generateUUID } from "@/lib/utils";
 import { OpenAPI } from "@/openapi";
 import { Api } from "@/api";
 import { openConversationStream } from "@/api/sse";
+import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
+import type { UseChatHelpers } from "@ai-sdk/react";
+import type { TokenInfo } from "@/components/artifact";
+
+const CHAT_MODEL_COOKIE_KEY = "chat-model";
+
+// ✅ Base 主网 WETH（包装 ETH，所有 DEX / 0x 都用它表示 ETH）
+const DEFAULT_BASE_TOKEN: TokenInfo = {
+  address: "0x4200000000000000000000000000000000000006",
+  symbol: "ETH",
+  name: "Wrapped Ether",
+};
+
+// ✅ Base 主网 USDC（官方 Circle 原生稳定币，Swap 常用）
+const DEFAULT_QUOTE_TOKEN: TokenInfo = {
+  address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  symbol: "USDC",
+  name: "USD Coin",
+};
+
+// ✅ Base 主网 Chain ID
+const DEFAULT_CHAIN_ID = 8453;
+
+function getChatModelFromCookies() {
+  if (typeof document === "undefined") {
+    return DEFAULT_CHAT_MODEL;
+  }
+
+  const match = document.cookie.match(
+    new RegExp(`(?:^|; )${CHAT_MODEL_COOKIE_KEY}=([^;]+)`)
+  );
+
+  return match ? decodeURIComponent(match[1]) : DEFAULT_CHAT_MODEL;
+}
 
 const DEFAULT_API_BASE =
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
@@ -89,12 +124,15 @@ export function Chat({
   );
   const resolvedChatId = conversationId ?? id;
 
+  const { setArtifact } = useArtifact();
   const { visibilityType } = useChatVisibility({
     chatId: resolvedChatId,
     initialVisibilityType,
   });
 
   const { setDataStream } = useDataStream();
+  const [selectedModelId, setSelectedModelId] =
+    useState<string>(DEFAULT_CHAT_MODEL);
   const [input, setInput] = useState<string>("");
   const [status, setStatus] = useState("ready");
   const [messages, setMessages] = useState<ChatMessage[]>(
@@ -159,33 +197,39 @@ export function Chat({
   }, [autoResume, conversationId, loadMessages]);
 
   useEffect(() => {
+    setSelectedModelId(getChatModelFromCookies());
+  }, []);
+
+  useEffect(() => {
     setMessages(initialMessages ?? []);
   }, [initialMessages]);
 
   // TODO: Issue with displaying tools and reasoning events in an interleaved/chronological order
   // Generic updater: update or create the specified part type on the last assistant message
   const updateLastAssistantPart = useCallback(
-    (partType: 'text' | 'reasoning', updater: (previous: string) => string) => {
+    (partType: "text" | "reasoning", updater: (previous: string) => string) => {
       setMessages((prevMessages) => {
         if (prevMessages.length === 0) return prevMessages;
 
         const lastIndex = prevMessages.length - 1;
         const lastMessage = prevMessages[lastIndex];
 
-        if (!lastMessage || lastMessage.role !== 'assistant') {
+        if (!lastMessage || lastMessage.role !== "assistant") {
           return prevMessages;
         }
 
-        const parts = Array.isArray(lastMessage.parts) ? [...lastMessage.parts] : [];
+        const parts = Array.isArray(lastMessage.parts)
+          ? [...lastMessage.parts]
+          : [];
         const idx = parts.findIndex((part) => part?.type === partType);
         const previousText =
-          idx >= 0 && typeof (parts[idx] as any)?.text === 'string'
+          idx >= 0 && typeof (parts[idx] as any)?.text === "string"
             ? (parts[idx] as any).text
-            : '';
+            : "";
 
-        let nextText = '';
+        let nextText = "";
         try {
-          nextText = updater(previousText || '');
+          nextText = updater(previousText || "");
         } catch (error) {
           console.error(`Failed to update assistant ${partType}`, error);
           return prevMessages;
@@ -217,7 +261,7 @@ export function Chat({
         const nextMessages = [...prevMessages];
         nextMessages[lastIndex] = {
           ...lastMessage,
-          parts: nextParts as ChatMessage['parts'],
+          parts: nextParts as ChatMessage["parts"],
         };
         return nextMessages;
       });
@@ -227,13 +271,13 @@ export function Chat({
 
   const updateAssistantMessage = useCallback(
     (updater: (previous: string) => string) =>
-      updateLastAssistantPart('text', updater),
+      updateLastAssistantPart("text", updater),
     [updateLastAssistantPart]
   );
 
   const updateAssistantReasoning = useCallback(
     (updater: (previous: string) => string) =>
-      updateLastAssistantPart('reasoning', updater),
+      updateLastAssistantPart("reasoning", updater),
     [updateLastAssistantPart]
   );
 
@@ -476,7 +520,43 @@ export function Chat({
   }, [loadMessages]);
 
   const [attachments, setAttachments] = useState<Array<Attachment>>([]);
+  const regenerate = useCallback<
+    UseChatHelpers<ChatMessage>["regenerate"]
+  >(async () => {
+    toast({
+      type: "info",
+      description: "当前暂不支持重新生成该回复",
+    });
+  }, []);
   const isArtifactVisible = useArtifactSelector((state) => state.isVisible);
+  const shouldShowArtifactToggle = isArtifactVisible || messages.length >= 3;
+
+  const handleArtifactToggle = useCallback(() => {
+    setArtifact((current) => {
+      const nextVisible = !current.isVisible;
+      if (!nextVisible) {
+        return { ...current, isVisible: false };
+      }
+
+      let fallbackBoundingBox = current.boundingBox;
+      if (fallbackBoundingBox.width === 0 && typeof window !== "undefined") {
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        fallbackBoundingBox = {
+          top: Math.max(vh - 200, 0),
+          left: Math.max(vw - 280, 0),
+          width: 260,
+          height: 160,
+        };
+      }
+
+      return {
+        ...current,
+        isVisible: true,
+        boundingBox: fallbackBoundingBox,
+      };
+    });
+  }, [setArtifact]);
 
   return (
     <>
@@ -489,6 +569,8 @@ export function Chat({
           messages={messages}
           isReadonly={isReadonly}
           isArtifactVisible={isArtifactVisible}
+          showArtifactToggle={shouldShowArtifactToggle}
+          onToggleArtifact={handleArtifactToggle}
         />
 
         <div className="sticky bottom-0 flex gap-2 px-2 md:px-4 pb-3 md:pb-4 mx-auto w-full bg-background max-w-4xl z-[1] border-t-0">
@@ -505,10 +587,16 @@ export function Chat({
               setMessages={setMessages}
               sendMessage={sendMessage}
               selectedVisibilityType={visibilityType}
+              selectedModelId={selectedModelId}
             />
           )}
         </div>
       </div>
+      <Artifact
+        baseToken={DEFAULT_BASE_TOKEN}
+        quoteToken={DEFAULT_QUOTE_TOKEN}
+        chainId={DEFAULT_CHAIN_ID}
+      />
     </>
   );
 }

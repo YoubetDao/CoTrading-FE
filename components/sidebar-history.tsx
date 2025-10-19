@@ -24,7 +24,6 @@ import {
 import type { Chat } from "@/lib/db/schema";
 import { ChatItem } from "./sidebar-history-item";
 import useSWRInfinite from "swr/infinite";
-import { OpenAPI } from "@/openapi";
 import { Api } from "@/api";
 import { LoaderIcon } from "./icons";
 
@@ -41,9 +40,6 @@ export interface ChatHistory {
   hasMore: boolean;
 }
 
-const DEFAULT_API_BASE =
-  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
-OpenAPI.BASE = DEFAULT_API_BASE;
 const PAGE_SIZE = 20;
 const HISTORY_KEY_PREFIX = "backend:conversations";
 

@@ -2,6 +2,7 @@ import { Toaster } from "sonner";
 import type { Metadata } from "next";
 
 import { ThemeProvider } from "@/components/theme-provider";
+import { WalletProvider } from "@/lib/wallet";
 
 import "./globals.css";
 
@@ -63,8 +64,10 @@ export default async function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <Toaster position="top-center" />
-          {children}
+          <WalletProvider>
+            <Toaster position="top-center" />
+            {children}
+          </WalletProvider>
         </ThemeProvider>
       </body>
     </html>

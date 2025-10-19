@@ -1,13 +1,15 @@
+"use client";
+
 import { PreviewMessage, ThinkingMessage } from "./message";
 import { Greeting } from "./greeting";
 import { memo, useEffect } from "react";
 import equal from "fast-deep-equal";
-import type { UseChatHelpers } from "@ai-sdk/react";
 import { useMessages } from "@/hooks/use-messages";
 import type { ChatMessage } from "@/lib/types";
 import { useDataStream } from "./data-stream-provider";
 import { Conversation, ConversationContent } from "./elements/conversation";
 import { ArrowDownIcon } from "lucide-react";
+import { Button } from "./ui/button";
 
 interface MessagesProps {
   chatId: string;
@@ -15,6 +17,8 @@ interface MessagesProps {
   messages: ChatMessage[];
   isReadonly: boolean;
   isArtifactVisible: boolean;
+  showArtifactToggle: boolean;
+  onToggleArtifact: () => void;
 }
 
 function PureMessages({
@@ -23,6 +27,8 @@ function PureMessages({
   messages,
   isReadonly,
   isArtifactVisible,
+  showArtifactToggle,
+  onToggleArtifact,
 }: MessagesProps) {
   const {
     containerRef: messagesContainerRef,
@@ -77,6 +83,14 @@ function PureMessages({
             />
           ))}
 
+          {showArtifactToggle && (
+            <div className="flex justify-end">
+              <Button variant="outline" onClick={onToggleArtifact}>
+                {isArtifactVisible ? "关闭 Artifact" : "打开 Artifact（测试）"}
+              </Button>
+            </div>
+          )}
+
           {status === "submitted" &&
             messages.length > 0 &&
             messages[messages.length - 1].role === "user" && (
@@ -105,7 +119,12 @@ function PureMessages({
 }
 
 export const Messages = memo(PureMessages, (prevProps, nextProps) => {
+  if (prevProps.showArtifactToggle !== nextProps.showArtifactToggle) {
+    return false;
+  }
+
   if (prevProps.isArtifactVisible && nextProps.isArtifactVisible) return true;
+  if (prevProps.isArtifactVisible !== nextProps.isArtifactVisible) return false;
 
   if (prevProps.status !== nextProps.status) return false;
   if (prevProps.messages.length !== nextProps.messages.length) return false;

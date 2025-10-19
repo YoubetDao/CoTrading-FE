@@ -1,4 +1,5 @@
 import { OpenAPI } from "@/openapi";
+import { BACKEND_BASE_URL } from "@/lib/backend-base";
 
 export const DEFAULT_SSE_EVENTS = [
   "message",
@@ -26,20 +27,20 @@ export function openConversationStream(
   cid: string,
   opts: ConversationStreamOptions = {}
 ): EventSource {
-  const url = `${OpenAPI.BASE}/conversations/${cid}/stream`;
+  const base = OpenAPI.BASE || BACKEND_BASE_URL;
+  const url = `${base}/conversations/${cid}/stream`;
   const source = new EventSource(url);
   const names = opts.events ?? DEFAULT_SSE_EVENTS;
-  const final = new Set<string>(opts.finalAgents ?? [
-    'ReAct Agent',
-    'Supervisor Agent',
-  ]);
+  const final = new Set<string>(
+    opts.finalAgents ?? ["ReAct Agent", "Supervisor Agent"]
+  );
 
   const forward = (name: string) => (event: MessageEvent) => {
     if (!event.data) return;
     try {
       const payload = JSON.parse(event.data);
       opts.onEvent?.(payload, name);
-      if (payload?.event === 'on_chain_end' && final.has(payload?.name)) {
+      if (payload?.event === "on_chain_end" && final.has(payload?.name)) {
         // Top-level graph finished
         opts.onComplete?.();
       }
