@@ -24,7 +24,7 @@ function PureSuggestedActions({
     // EN
     "Summarize the latest Bitcoin news in 5 bullet points",
     // ZH — BSC ecosystem KOLs
-    "Just list top five active X KOL in BSC ecosystem for me.",
+    "BSC 上有哪些比较不错的项目，他们的推特是什么？",
     // ZH
     "帮我分析接下来一周 ETH 可能的风险因素，并给出应对建议",
     // ES

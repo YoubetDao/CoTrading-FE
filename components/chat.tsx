@@ -677,7 +677,7 @@ export function Chat({
     });
   }, []);
   const isArtifactVisible = useArtifactSelector((state) => state.isVisible);
-  const shouldShowArtifactToggle = isArtifactVisible || messages.length >= 3;
+  const shouldShowArtifactToggle = isArtifactVisible || messages.length >= 5;
 
   const handleArtifactToggle = useCallback(() => {
     setArtifact((current) => {

@@ -98,10 +98,11 @@ function mapConversationToChat(item: any, fallbackIndex: number): Chat {
     typeof item?.id === "string" && item.id.length > 0
       ? item.id
       : `conversation-${fallbackIndex}`;
-  const title =
-    typeof item?.title === "string" && item.title.length > 0
-      ? item.title
-      : `Conversation ${rawId.slice(0, 8)}`;
+  const name =
+    typeof item?.name === "string" && item.name.trim().length > 0
+      ? item.name.trim()
+      : "";
+  const title = name || `Conversation ${rawId.slice(0, 8)}`;
   const createdAt =
     typeof item?.created_at === "string" && item.created_at.length > 0
       ? item.created_at
