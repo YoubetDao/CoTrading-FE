@@ -170,9 +170,9 @@ function PureMessages({
           ))}
 
           {showArtifactToggle && (
-            <div className="flex justify-end">
+            <div className="flex justify-start">
               <Button variant="outline" onClick={onToggleArtifact}>
-                {isArtifactVisible ? "关闭 Artifact" : "打开 Artifact（测试）"}
+                {isArtifactVisible ? "关闭 Artifact" : "Trade Now?"}
               </Button>
             </div>
           )}

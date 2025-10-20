@@ -110,7 +110,7 @@ const PurePreviewMessage = ({
             const partsForRender = Array.isArray(message.parts)
               ? [...message.parts]
               : [];
-            // 保证文本在所有 reasoning 和 tool 之后渲染
+            // Ensure text parts render after all reasoning and tool parts
             const orderedParts = [
               ...partsForRender.filter((p: any) => p?.type !== "text"),
               ...partsForRender.filter((p: any) => p?.type === "text"),
@@ -179,7 +179,7 @@ const PurePreviewMessage = ({
                 const { toolCallId, state } = part;
 
                 return (
-                  <Tool key={toolCallId} defaultOpen={true}>
+                  <Tool key={toolCallId} defaultOpen={false}>
                     <ToolHeader type="tool-getWeather" state={state} />
                     <ToolContent>
                       {state === "input-available" && (
@@ -196,11 +196,44 @@ const PurePreviewMessage = ({
                 );
               }
 
+              if (type === "dynamic-tool") {
+                const toolName = (part as any).toolName ?? "dynamic-tool";
+                return (
+                  <Tool key={`dynamic-${index}`} defaultOpen={false}>
+                    <ToolHeader type={toolName as any} state={"output-available" as any} />
+                    <ToolContent>
+                      <ToolOutput
+                        output={(() => {
+                          const output = (part as any).output;
+                          if (!output) return null;
+                          try {
+                            return (
+                              <pre className="text-xs whitespace-pre-wrap break-words p-2">
+                                {typeof output === "string"
+                                  ? output
+                                  : JSON.stringify(output, null, 2)}
+                              </pre>
+                            );
+                          } catch (_error) {
+                            return (
+                              <div className="text-xs p-2">
+                                [unrenderable tool output]
+                              </div>
+                            );
+                          }
+                        })()}
+                        errorText={undefined}
+                      />
+                    </ToolContent>
+                  </Tool>
+                );
+              }
+
               if (type === "tool-getCryptoKline") {
                 const { toolCallId, state } = part;
 
                 return (
-                  <Tool key={toolCallId} defaultOpen={true}>
+                  <Tool key={toolCallId} defaultOpen={false}>
                     <ToolHeader type="tool-getCryptoKline" state={state} />
                     <ToolContent>
                       {state === "input-available" && (
@@ -316,7 +349,7 @@ const PurePreviewMessage = ({
                 const { toolCallId, state } = part;
 
                 return (
-                  <Tool key={toolCallId} defaultOpen={true}>
+                  <Tool key={toolCallId} defaultOpen={false}>
                     <ToolHeader type="tool-requestSuggestions" state={state} />
                     <ToolContent>
                       {state === "input-available" && (

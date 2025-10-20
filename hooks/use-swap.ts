@@ -57,7 +57,6 @@ export function useSwap({
         const isNative =
           sellToken.toLowerCase() ===
           "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
-
         // 0x v2 返回的授权目标（优先 allowanceTarget）
         const spender: `0x${string}` =
           quote?.allowanceTarget ?? quote?.issues?.allowance?.spender;

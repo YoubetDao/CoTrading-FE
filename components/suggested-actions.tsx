@@ -18,17 +18,15 @@ function PureSuggestedActions({
   sendMessage,
   selectedVisibilityType,
 }: SuggestedActionsProps) {
+  // Showcase product capabilities when there is no chat history
+  // Language distribution: EN x2, ZH x1, ES x1
   const suggestedActions = [
-    "What are the advantages of using Next.js?",
-    "Write code to demonstrate Dijkstra's algorithm",
-    "Help me write an essay about Silicon Valley",
-    "What is the weather in San Francisco?",
     // EN
     "Summarize the latest Bitcoin news in 5 bullet points",
     // ZH — BSC ecosystem KOLs
-    "请列出 BSC 生态里有影响力的 KOL，并说明各自关注点与代表观点",
+    "Just list top five active X KOL in BSC ecosystem for me.",
     // ZH
-    "帮我分析接下来一周 BTC 可能的风险因素，并给出应对建议",
+    "帮我分析接下来一周 ETH 可能的风险因素，并给出应对建议",
     // ES
     "¿Qué significa 'alpha' en cripto? Dame ejemplos claros.",
   ];

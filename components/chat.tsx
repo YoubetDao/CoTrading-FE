@@ -11,6 +11,7 @@ import type { Attachment, ChatMessage } from "@/lib/types";
 import { useArtifact, useArtifactSelector } from "@/hooks/use-artifact";
 import { useChatVisibility } from "@/hooks/use-chat-visibility";
 import { useDataStream } from "./data-stream-provider";
+import { partsFromEvents } from "@/lib/timeline/replay-events-to-parts";
 import { toast } from "./toast";
 import { generateUUID } from "@/lib/utils";
 import { OpenAPI } from "@/openapi";
@@ -78,26 +79,22 @@ async function parseErrorResponse(response: Response): Promise<string> {
 
 function mapBackendMessage(item: BackendMessage): ChatMessage {
   const content = typeof item.content === "string" ? item.content : "";
-  const reasoning = item.events
-    ?.map((event) => event.data?.output?.reasoning ?? "")
-    .join("\n");
   const createdAt = item.created_at
     ? new Date(item.created_at).toISOString()
     : new Date().toISOString();
 
+  const parts: ChatMessage["parts"] = [] as ChatMessage["parts"];
+  if (Array.isArray(item.events)) {
+    parts.push(...(partsFromEvents(item.events) as ChatMessage["parts"]));
+  }
+  if (content) {
+    parts.push({ type: "text", text: content } as ChatMessage["parts"][number]);
+  }
+
   return {
     id: item.message_id ?? generateUUID(),
     role: (item.role as ChatMessage["role"]) ?? "assistant",
-    parts: [
-      {
-        type: "reasoning",
-        text: reasoning,
-      },
-      {
-        type: "text",
-        text: content,
-      },
-    ] as ChatMessage["parts"],
+    parts,
     metadata: {
       createdAt,
     },
@@ -265,7 +262,10 @@ export function Chat({
   // TODO: Issue with displaying tools and reasoning events in an interleaved/chronological order
   // Generic updater: update or create the specified part type on the last assistant message
   const updateLastAssistantPart = useCallback(
-    (partType: "text" | "reasoning", updater: (previous: string) => string) => {
+    (
+      partType: "text" | "reasoning" | "dynamic-tool",
+      updater: (previous: string) => string
+    ) => {
       setMessages((prevMessages) => {
         if (prevMessages.length === 0) return prevMessages;
 
@@ -339,6 +339,79 @@ export function Chat({
     [updateLastAssistantPart]
   );
 
+  const appendAssistantTailReasoning = useCallback(
+    (delta: string) => {
+      if (!delta) return;
+      setMessages((prevMessages) => {
+        if (prevMessages.length === 0) return prevMessages;
+        const lastIndex = prevMessages.length - 1;
+        const lastMessage = prevMessages[lastIndex];
+        if (!lastMessage || lastMessage.role !== "assistant") return prevMessages;
+
+        const parts = Array.isArray(lastMessage.parts)
+          ? [...lastMessage.parts]
+          : [];
+        const lastPart = parts[parts.length - 1] as any;
+        if (lastPart && lastPart.type === "reasoning") {
+          const updated = {
+            ...lastPart,
+            text: String(lastPart.text ?? "") + delta,
+          };
+          const nextParts = [...parts.slice(0, -1), updated];
+          const nextMessages = [...prevMessages];
+          nextMessages[lastIndex] = {
+            ...lastMessage,
+            parts: nextParts as ChatMessage["parts"],
+          };
+          return nextMessages;
+        }
+
+        const nextParts = [
+          ...parts,
+          { type: "reasoning", text: delta } as ChatMessage["parts"][number],
+        ];
+        const nextMessages = [...prevMessages];
+        nextMessages[lastIndex] = {
+          ...lastMessage,
+          parts: nextParts as ChatMessage["parts"],
+        };
+        return nextMessages;
+      });
+    },
+    [setMessages]
+  );
+
+  const appendAssistantDynamicTool = useCallback(
+    (toolName: string, output: any) => {
+      setMessages((prevMessages) => {
+        if (prevMessages.length === 0) return prevMessages;
+        const lastIndex = prevMessages.length - 1;
+        const lastMessage = prevMessages[lastIndex];
+        if (!lastMessage || lastMessage.role !== "assistant") return prevMessages;
+
+        const parts = Array.isArray(lastMessage.parts)
+          ? [...lastMessage.parts]
+          : [];
+        const nextParts = [
+          ...parts,
+          {
+            type: "dynamic-tool",
+            toolName,
+            state: "output-available",
+            output,
+          } as ChatMessage["parts"][number],
+        ];
+        const nextMessages = [...prevMessages];
+        nextMessages[lastIndex] = {
+          ...lastMessage,
+          parts: nextParts as ChatMessage["parts"],
+        };
+        return nextMessages;
+      });
+    },
+    [setMessages]
+  );
+
   const handleStreamPayload = useCallback(
     (payload: any) => {
       if (!payload) return;
@@ -373,7 +446,7 @@ export function Chat({
           payload?.data?.chunk?.reasoning ??
           (payload?.type === "reasoning-delta" ? payload?.delta : undefined);
         if (typeof rDelta === "string" && rDelta.length > 0) {
-          updateAssistantReasoning((previous) => `${previous}${rDelta}`);
+          appendAssistantTailReasoning(rDelta);
         }
         return;
       }
@@ -391,6 +464,16 @@ export function Chat({
         return;
       }
 
+      if (eventType === "on_tool_end") {
+        const toolName = String(payload?.name ?? "tool");
+        const toolOutput =
+          payload?.data?.output?.content ??
+          payload?.data?.output ??
+          payload?.output;
+        appendAssistantDynamicTool(toolName, toolOutput);
+        return;
+      }
+
       if (eventType === "on_chain_error") {
         const message =
           payload?.data?.message ??
@@ -400,7 +483,14 @@ export function Chat({
         setStatus("ready");
       }
     },
-    [setDataStream, setStatus, updateAssistantMessage, updateAssistantReasoning]
+    [
+      appendAssistantDynamicTool,
+      appendAssistantTailReasoning,
+      setDataStream,
+      setStatus,
+      updateAssistantMessage,
+      updateAssistantReasoning,
+    ]
   );
 
   const openStream = useCallback(
