@@ -136,6 +136,12 @@ export function Chat({
     () => initialMessages ?? []
   );
 
+  const loadedIdsRef = useRef<Set<string>>(new Set());
+  const [pageSize, setPageSize] = useState<number>(10);
+  const [currentPage, setCurrentPage] = useState<number>(1); // ASC paging index
+  const [hasMore, setHasMore] = useState<boolean>(false);
+  const [isPaging, setIsPaging] = useState<boolean>(false);
+
   const eventSourceRef = useRef<EventSource | null>(null);
   const conversationIdRef = useRef<string | null>(conversationId);
 
@@ -158,19 +164,38 @@ export function Chat({
 
       try {
         try {
+          // Probe total to compute last page using fixed pageSize=10
+          const probe = await Api.getConversationsMessages({
+            cid: targetConversationId,
+            order: "asc",
+            page: 1,
+            pageSize: 1,
+          });
+          const total: number = (probe as any)?.total ?? 0;
+          const ps = 10;
+          const lastPage = Math.max(1, Math.ceil(total / ps));
+
+          // Load the latest page in ascending order so newest is at the bottom
           const data = await Api.getConversationsMessages({
             cid: targetConversationId,
             order: "asc",
+            page: lastPage,
+            pageSize: ps,
           });
           const items = Array.isArray((data as any)?.items)
             ? (data as any).items
             : [];
           const history = items.map(mapBackendMessage);
+          loadedIdsRef.current = new Set(history.map((m) => m.id));
           setMessages(history);
+          setPageSize(ps);
+          setCurrentPage(lastPage);
+          setHasMore(lastPage > 1);
         } catch (e: any) {
           const isNotFound = /HTTP\s+404/.test(String(e?.message ?? ""));
           if (isNotFound) {
             setMessages([]);
+            setHasMore(false);
             return;
           }
           throw e;
@@ -186,6 +211,39 @@ export function Chat({
     },
     [setMessages]
   );
+
+  // Load older page and prepend to current messages
+  const loadOlderPage = useCallback(async () => {
+    if (!conversationIdRef.current) return;
+    if (isPaging) return;
+    if (!hasMore) return;
+    try {
+      setIsPaging(true);
+      const data = await Api.getConversationsMessages({
+        cid: conversationIdRef.current,
+        order: "asc",
+        page: currentPage - 1,
+        pageSize: pageSize || 10,
+      });
+      const items = Array.isArray((data as any)?.items)
+        ? (data as any).items
+        : [];
+      const olderAll = items.map(mapBackendMessage);
+      // Deduplicate by id to prevent duplicate keys
+      const older = olderAll.filter((m) => {
+        if (loadedIdsRef.current.has(m.id)) return false;
+        loadedIdsRef.current.add(m.id);
+        return true;
+      });
+      setMessages((prev) => (older.length > 0 ? [...older, ...prev] : prev));
+      setCurrentPage((p) => p - 1);
+      setHasMore(currentPage - 1 > 1);
+    } catch (error) {
+      console.error("Failed to load older messages", error);
+    } finally {
+      setIsPaging(false);
+    }
+  }, [currentPage, pageSize, isPaging, hasMore]);
 
   useEffect(() => {
     if (autoResume && conversationId) {
@@ -661,6 +719,7 @@ export function Chat({
           isArtifactVisible={isArtifactVisible}
           showArtifactToggle={shouldShowArtifactToggle}
           onToggleArtifact={handleArtifactToggle}
+          onReachTop={hasMore ? loadOlderPage : undefined}
         />
 
         <div className="sticky bottom-0 flex gap-2 px-2 md:px-4 pb-3 md:pb-4 mx-auto w-full bg-background max-w-4xl z-[1] border-t-0">
