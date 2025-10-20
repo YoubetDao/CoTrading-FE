@@ -1,7 +1,6 @@
 "use client";
 import { motion } from "framer-motion";
 import { memo, useState } from "react";
-import type { Vote } from "@/lib/db/schema";
 import { DocumentToolResult } from "./document";
 import { SparklesIcon } from "./icons";
 import { Response } from "./elements/response";
@@ -18,10 +17,8 @@ import { PreviewAttachment } from "./preview-attachment";
 import { Weather } from "./weather";
 import equal from "fast-deep-equal";
 import { cn, sanitizeText } from "@/lib/utils";
-import { MessageEditor } from "./message-editor";
 import { DocumentPreview } from "./document-preview";
 import { MessageReasoning } from "./message-reasoning";
-import type { UseChatHelpers } from "@ai-sdk/react";
 import type { ChatMessage } from "@/lib/types";
 import { useDataStream } from "./data-stream-provider";
 import { TradingViewChart } from "./tradingview-chart";
@@ -57,6 +54,7 @@ const PurePreviewMessage = ({
 
   return (
     <motion.div
+      data-mid={message.id}
       data-testid={`message-${message.role}`}
       className="w-full group/message"
       initial={{ opacity: 0 }}

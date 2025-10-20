@@ -354,6 +354,7 @@ export const MultimodalInput = memo(
     if (prevProps.selectedVisibilityType !== nextProps.selectedVisibilityType)
       return false;
     if (prevProps.selectedModelId !== nextProps.selectedModelId) return false;
+    if (!equal(prevProps.messages, nextProps.messages)) return false;
 
     return true;
   }

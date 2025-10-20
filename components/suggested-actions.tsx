@@ -23,6 +23,14 @@ function PureSuggestedActions({
     "Write code to demonstrate Dijkstra's algorithm",
     "Help me write an essay about Silicon Valley",
     "What is the weather in San Francisco?",
+    // EN
+    "Summarize the latest Bitcoin news in 5 bullet points",
+    // ZH — BSC ecosystem KOLs
+    "请列出 BSC 生态里有影响力的 KOL，并说明各自关注点与代表观点",
+    // ZH
+    "帮我分析接下来一周 BTC 可能的风险因素，并给出应对建议",
+    // ES
+    "¿Qué significa 'alpha' en cripto? Dame ejemplos claros.",
   ];
 
   return (
@@ -45,7 +53,7 @@ function PureSuggestedActions({
               sendMessage({
                 role: "user",
                 parts: [{ type: "text", text: suggestion }],
-              }); 
+              });
             }}
             className="text-left w-full h-auto whitespace-normal p-3"
           >
