@@ -1,40 +1,52 @@
-# Frontend
+# CoTrading-FE
 
-Stack: Next.js. Renders the chat UI and consumes backend REST/SSE.
+## 项目概述与目标
 
-- Key endpoints:
-  - `POST /conversations` (convenience for first message)
-  - `POST /conversations/:cid/messages`
-  - `GET /conversations/:cid/messages`
-  - `GET /conversations/:cid/stream/:mid` (SSE, no replay)
-  - `GET /conversations/:cid/stream` (SSE, no replay)
-- Flow:
-  1) Create conversation (optionally with first message)
-  2) Render history via REST
-  3) If active, subscribe SSE; otherwise poll status until done
-- Notes:
-  - Leave `NEXT_PUBLIC_BACKEND_URL` unset for local development to talk directly to `http://localhost:8000`; override it with your own backend URL as needed.
-  - Handle 204 on SSE by falling back to REST polling
-  - Keep UI state split into history (from DB) and live stream (from SSE)
-  - SSE helper: `openConversationStream(cid, { onEvent, onError })` in `frontend/lib/api/sse.ts` wraps EventSource and forwards parsed JSON events
+Your AI Copilot for Smarter Crypto Trading
 
-## OpenAPI Codegen
+一句话说明：Cotrading 通过理解你的交易偏好并融合 CEX、DEX 与链上数据，以多智能体协作在原生交易工作流中提供实时、可执行、可解释的策略与风控建议。
 
-- Full client (axios):
-  - `pnpm run openapi:client` → generates axios client under `frontend/openapi`
-  - Usage:
-    - `import { OpenAPI, DefaultService as Api } from '@/openapi'`
-    - Or use the thin re-export: `import { Api, OpenAPI } from '@/api'`
-    - `OpenAPI.BASE = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000'`
-  - Note: method names come from backend `operationId` (e.g., `getConversationsMessages`).
+- 同时理解你与市场：持续学习你的交易风格，跨 CEX/DEX/链上整合数据，将人的直觉与机器精度结合。
+- 多智能体协作：由链上、情绪、量化、技术、风险等子智能体（SubAgents）协同运作，输出全景洞见与实时策略。
+- 一体化交易体验：AI 嵌入交易工作流，结合交互式 K 线、仪表盘与分析画布，零上下文切换、低摩擦。
 
-### Auto‑generation and repo hygiene
+目标
+- 个性化投研与策略共创，提升决策速度与质量
+- 多源数据融合与可解释洞见，强化市场把握
+- 策略实时协同与自动化执行接口，缩短从想法到落地
+- 风险识别/预警与仓位建议，守住风控边界
+- 可视化与可追溯记录，沉淀方法论
 
-- The generated client lives in `frontend/openapi/` and is git‑ignored (see `.gitignore`).
-- It is auto‑generated before `dev` and `build` via npm scripts (`predev`, `prebuild`).
-- If auto‑generation fails (e.g., network), run manually:
-  - `pnpm run openapi:client` (from `frontend/`)
-  - or `make codegen-frontend-client` (from repo root)
-- You can use the generated client directly, or re‑export via `@/api`:
-  - `import { Api } from '@/api'`
-  - SSE helper: `import { openConversationStream } from '@/api/sse'`
+## 技术栈与依赖说明
+- 框架与语言：Next.js 15（App Router）、React 19 RC、TypeScript
+- UI/状态：Tailwind CSS、Radix UI、TanStack Query
+- 数据与鉴权：Drizzle ORM + Postgres、NextAuth、Redis（可选）
+- Web3：wagmi、viem、RainbowKit
+- 工具与质量：ESLint、Biome、Playwright E2E、@vercel/*（Analytics/Postgres/Blob 等）
+
+## 部署与使用指南
+环境要求：Node 18+、pnpm 9.x
+
+本地开发
+- 安装依赖：`pnpm i`
+- 配置环境变量：创建 `.env.local`（示例见下）
+- 初始化数据库：`pnpm db:migrate`
+- 启动开发：`pnpm dev`（默认 http://localhost:3000）
+- 测试与质量：`pnpm test`、`pnpm lint`、`pnpm format`
+
+构建与部署
+- 构建：`pnpm build`（先运行 DB 迁移再构建）
+- 生产启动：`pnpm start`
+- 部署建议：Vercel；或自托管 Node 环境，确保数据库与环境变量可用
+
+数据库与工具（可选）
+- 生成/迁移/可视化：`pnpm db:generate`、`pnpm db:migrate`、`pnpm db:studio`
+
+## 环境变量示例
+- `NEXT_PUBLIC_BACKEND_URL`（可选；不设时本地默认 `http://localhost:8000`）
+- `DATABASE_URL`（Postgres 连接串）
+- `NEXTAUTH_URL`、`NEXTAUTH_SECRET`
+- `REDIS_URL`（可选）
+
+## OpenAPI 客户端（可选）
+- 生成：`pnpm openapi:client`（默认 predev/prebuild 跳过；在仓库根也可执行 `make -C .. codegen-frontend-client`）
