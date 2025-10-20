@@ -101,11 +101,21 @@ function mapConversationToChat(item: any, fallbackIndex: number): Chat {
   const title =
     typeof item?.title === "string" && item.title.length > 0
       ? item.title
-      : `Conversation ${rawId.slice(0, 8)}`;
+      : typeof item?.name === "string" && item.name.length > 0
+        ? item.name
+        : `Conversation ${rawId.slice(0, 8)}`;
   const createdAt =
     typeof item?.created_at === "string" && item.created_at.length > 0
       ? item.created_at
-      : new Date().toISOString();
+      : typeof item?.createdAt === "string" && item.createdAt.length > 0
+        ? item.createdAt
+        : new Date().toISOString();
+  const userId =
+    typeof item?.user_id === "string" && item.user_id.length > 0
+      ? item.user_id
+      : typeof item?.userId === "string" && item.userId.length > 0
+        ? item.userId
+        : "";
   const visibility =
     item?.visibility === "public" || item?.visibility === "private"
       ? item.visibility
@@ -115,7 +125,7 @@ function mapConversationToChat(item: any, fallbackIndex: number): Chat {
     id: rawId,
     createdAt,
     title,
-    userId: item?.user_id ?? "",
+    userId,
     visibility,
   };
 }
@@ -247,7 +257,6 @@ export function SidebarHistory() {
   //     </SidebarGroup>
   //   );
   // }
-
   if (isLoading) {
     return (
       <SidebarGroup>
